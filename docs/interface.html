@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Algoritmos de Rasterización</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f0f0;
+            display: flex;
+            height: 100vh;
+        }
+
+        .control-panel {
+            width: 320px;
+            background: #ffffff;
+            border-right: 2px solid #ddd;
+            padding: 15px;
+            overflow-y: auto;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        }
+
+        .main-canvas-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #fafafa;
+        }
+
+        .canvas-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        #canvas {
+            border: 2px solid #333;
+            background: white;
+            cursor: crosshair;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+
+        .status-bar {
+            height: 60px;
+            background: #2c3e50;
+            color: white;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            gap: 20px;
+        }
+
+        .group-box {
+            border: 2px solid #3498db;
+            border-radius: 8px;
+            margin: 10px 0;
+            padding: 15px;
+            background: #f8f9fa;
+        }
+
+        .group-title {
+            background: #3498db;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .tab-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2px;
+            margin-bottom: 10px;
+        }
+
+        .tab {
+            background: #ecf0f1;
+            border: 1px solid #bdc3c7;
+            padding: 8px 12px;
+            cursor: pointer;
+            border-radius: 4px 4px 0 0;
+            font-size: 12px;
+            transition: all 0.3s;
+        }
+
+        .tab.active {
+            background: #3498db;
+            color: white;
+            border-color: #3498db;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 10px;
+            background: white;
+            border-radius: 0 0 4px 4px;
+            border: 1px solid #bdc3c7;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .radio-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .radio-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .radio-item input[type="radio"] {
+            margin: 0;
+        }
+
+        .radio-item label {
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .input-group {
+            margin: 10px 0;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 4px;
+            font-weight: bold;
+            font-size: 12px;
+            color: #2c3e50;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .input-row input {
+            width: 60px;
+            padding: 4px 8px;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .color-picker {
+            width: 40px;
+            height: 30px;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.3s;
+            margin: 2px;
+        }
+
+        .button:hover {
+            background: #2980b9;
+        }
+
+        .button.success {
+            background: #27ae60;
+        }
+
+        .button.success:hover {
+            background: #219a52;
+        }
+
+        .button.danger {
+            background: #e74c3c;
+        }
+
+        .button.danger:hover {
+            background: #c0392b;
+        }
+
+        .button:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #ecf0f1;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3498db, #2980b9);
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        .info-box {
+            background: #fff;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 5px 0;
+            font-size: 12px;
+            min-height: 80px;
+        }
+
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0;
+        }
+
+        .speed-slider {
+            flex: 1;
+        }
+
+        .coordinates {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+
+        .pixel {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            pointer-events: none;
+        }
+
+        .pixel.current {
+            background: #e74c3c;
+            width: 3px;
+            height: 3px;
+            z-index: 10;
+        }
+
+        .pixel.processed {
+            background: #27ae60;
+            width: 2px;
+            height: 2px;
+        }
+
+        .pixel.pending {
+            background: #95a5a6;
+            width: 1px;
+            height: 1px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin: 10px 0;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-item {
+            display: flex;
+            flex-direction: column;
+            font-size: 12px;
+        }
+
+        .status-label {
+            color: #bdc3c7;
+            font-size: 10px;
+        }
+
+        .algorithm-info {
+            background: #e8f6f3;
+            border-left: 4px solid #1abc9c;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 12px;
+            border-radius: 0 4px 4px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="control-panel">
+        <!-- Sección de Algoritmos -->
+        <div class="group-box">
+            <div class="group-title">Algoritmos</div>
+            <div class="tab-container">
+                <div class="tab active" onclick="showTab('raster-tab')">Rasterización</div>
+                <div class="tab" onclick="showTab('fill-tab')">Relleno</div>
+                <div class="tab" onclick="showTab('clip-tab')">Recorte</div>
+                <div class="tab" onclick="showTab('curve-tab')">Curvas</div>
+            </div>
+            
+            <div id="raster-tab" class="tab-content active">
+                <div class="radio-group">
+                    <div class="radio-item">
+                        <input type="radio" id="dda" name="algorithm" value="dda" checked>
+                        <label for="dda">DDA (Digital Differential Analyzer)</label>
+                    </div>
+                    <div class="radio-item">
+                        <input type="radio" id="bresenham-line" name="algorithm" value="bresenham-line">
+                        <label for="bresenham-line">Bresenham para Líneas</label>
+                    </div>
+                    <div class="radio-item">
+                        <input type="radio" id="bresenham-circle" name="algorithm" value="bresenham-circle">
+                        <label for="bresenham-circle">Bresenham para Círculos</label>
+                    </div>
+                    <div class="radio-item">
+                        <input type="radio" id="bresenham-ellipse" name="algorithm" value="bresenham-ellipse">
+                        <label for="bresenham-ellipse">Bresenham para Elipses</label>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="fill-tab" class="tab-content">
+                <div class="radio-group">
+                    <div class="radio-item">
+                        <input type="radio" id="flood-fill" name="algorithm" value="flood-fill">
+                        <label for="flood-fill">Flood Fill</label>
+                    </div>
+                    <div class="radio-item">
+                        <input type="radio" id="scanline-fill" name="algorithm" value="scanline-fill">
+                        <label for="scanline-fill">Scanline Fill</label>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="clip-tab" class="tab-content">
+                <div class="radio-group">
+                    <div class="radio-item">
+                        <input type="radio" id="cohen-sutherland" name="algorithm" value="cohen-sutherland">
+                        <label for="cohen-sutherland">Cohen-Sutherland</label>
+                    </div>
+                    <div class="radio-item">
+                        <input type="radio" id="sutherland-hodgman" name="algorithm" value="sutherland-hodgman">
+                        <label for="sutherland-hodgman">Sutherland-Hodgman</label>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="curve-tab" class="tab-content">
+                <div class="radio-group">
+                    <div class="radio-item">
+                        <input type="radio" id="bezier" name="algorithm" value="bezier">
+                        <label for="bezier">Curvas de Bézier</label>
+                    </div>
+                    <div class="radio-item">
+                        <input type="radio" id="bspline" name="algorithm" value="bspline">
+                        <label for="bspline">B-Splines</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sección de Parámetros -->
+        <div class="group-box">
+            <div class="group-title">Parámetros</div>
+            <div id="parameters-container">
+                <div class="input-group">
+                    <label>Punto Inicial:</label>
+                    <div class="input-row">
+                        <input type="number" id="x1" placeholder="X1" value="50">
+                        <input type="number" id="y1" placeholder="Y1" value="50">
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Punto Final:</label>
+                    <div class="input-row">
+                        <input type="number" id="x2" placeholder="X2" value="200">
+                        <input type="number" id="y2" placeholder="Y2" value="150">
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Color:</label>
+                    <input type="color" id="color-picker" class="color-picker" value="#3498db">
+                </div>
+            </div>
+        </div>
+
+        <!-- Sección de Ejecución -->
+        <div class="group-box">
+            <div class="group-title">Ejecución</div>
+            <button class="button success" onclick="executeStep()" id="step-btn">Ejecutar Paso</button>
+            <button class="button" onclick="executeComplete()" id="complete-btn">Ejecutar Completo</button>
+            <button class="button danger" onclick="pauseExecution()" id="pause-btn" disabled>Pausar</button>
+            <button class="button" onclick="resetExecution()" id="reset-btn">Reiniciar</button>
+            
+            <div class="speed-control">
+                <label>Velocidad:</label>
+                <input type="range" class="speed-slider" id="speed-slider" min="1" max="10" value="5">
+                <span id="speed-value">5</span>
+            </div>
+            
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+        </div>
+
+        <!-- Sección de Información -->
+        <div class="group-box">
+            <div class="group-title">Información del Paso</div>
+            <div class="info-box" id="step-info">
+                <strong>Algoritmo:</strong> DDA<br>
+                <strong>Estado:</strong> Listo para ejecutar<br>
+                <strong>Paso:</strong> 0/0<br>
+                <strong>Píxel actual:</strong> -
+            </div>
+        </div>
+
+        <!-- Opciones de Visualización -->
+        <div class="group-box">
+            <div class="group-title">Visualización</div>
+            <div class="checkbox-group">
+                <div class="checkbox-item">
+                    <input type="checkbox" id="show-grid" onchange="toggleGrid()">
+                    <label for="show-grid">Mostrar Grid</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="show-coords" onchange="toggleCoords()">
+                    <label for="show-coords">Mostrar Coordenadas</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="show-steps" checked onchange="toggleSteps()">
+                    <label for="show-steps">Mostrar Pasos</label>
+                </div>
+            </div>
+            <button class="button danger" onclick="clearCanvas()">Limpiar Canvas</button>
+        </div>
+    </div>
+
+    <div class="main-canvas-area">
+        <div class="canvas-container">
+            <canvas id="canvas" width="600" height="400"></canvas>
+        </div>
+        
+        <div class="status-bar">
+            <div class="status-item">
+                <span class="status-label">Coordenadas del Mouse:</span>
+                <span id="mouse-coords" class="coordinates">(0, 0)</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Modo:</span>
+                <span id="current-mode">Definir Puntos</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Estado:</span>
+                <span id="execution-status">Listo</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Puntos Seleccionados:</span>
+                <span id="points-count">0</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let canvas = document.getElementById('canvas');
+        let ctx = canvas.getContext('2d');
+        let isExecuting = false;
+        let currentStep = 0;
+        let totalSteps = 0;
+        let executionInterval = null;
+        let selectedPoints = [];
+        let currentAlgorithm = 'dda';
+        let showGrid = false;
+        let showCoords = false;
+        let showSteps = true;
+
+        // Inicialización
+        function init() {
+            canvas.addEventListener('mousemove', updateMouseCoords);
+            canvas.addEventListener('click', handleCanvasClick);
+            document.getElementById('speed-slider').addEventListener('input', updateSpeed);
+            updateAlgorithmInfo();
+            drawCanvas();
+        }
+
+        function showTab(tabId) {
+            // Ocultar todas las pestañas
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Mostrar la pestaña seleccionada
+            document.getElementById(tabId).classList.add('active');
+            event.target.classList.add('active');
+            
+            // Actualizar algoritmo seleccionado
+            updateAlgorithmInfo();
+        }
+
+        function updateMouseCoords(event) {
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor(event.clientX - rect.left);
+            const y = Math.floor(event.clientY - rect.top);
+            document.getElementById('mouse-coords').textContent = `(${x}, ${y})`;
+        }
+
+        function handleCanvasClick(event) {
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor(event.clientX - rect.left);
+            const y = Math.floor(event.clientY - rect.top);
+            
+            if (currentAlgorithm === 'dda' || currentAlgorithm === 'bresenham-line') {
+                if (selectedPoints.length < 2) {
+                    selectedPoints.push({x, y});
+                    document.getElementById('points-count').textContent = selectedPoints.length;
+                    
+                    if (selectedPoints.length === 1) {
+                        document.getElementById('x1').value = x;
+                        document.getElementById('y1').value = y;
+                    } else if (selectedPoints.length === 2) {
+                        document.getElementById('x2').value = x;
+                        document.getElementById('y2').value = y;
+                    }
+                    
+                    drawCanvas();
+                }
+            } else if (currentAlgorithm === 'bresenham-circle') {
+                if (selectedPoints.length < 1) {
+                    selectedPoints.push({x, y});
+                    document.getElementById('points-count').textContent = selectedPoints.length;
+                    document.getElementById('cx').value = x;
+                    document.getElementById('cy').value = y;
+                    drawCanvas();
+                }
+            } else if (currentAlgorithm === 'cohen-sutherland' || currentAlgorithm === 'sutherland-hodgman') {
+                if (selectedPoints.length < 2) {
+                    selectedPoints.push({x, y});
+                    document.getElementById('points-count').textContent = selectedPoints.length;
+                    
+                    if (selectedPoints.length === 1) {
+                        document.getElementById('x1').value = x;
+                        document.getElementById('y1').value = y;
+                    } else if (selectedPoints.length === 2) {
+                        document.getElementById('x2').value = x;
+                        document.getElementById('y2').value = y;
+                    }
+                    drawCanvas();
+                }
+            }
+        }
+
+        function drawCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Dibujar grid si está habilitado
+            if (showGrid) {
+                drawGrid();
+            }
+            
+            // Dibujar área de recorte si el algoritmo es de recorte
+            if (currentAlgorithm === 'cohen-sutherland' || currentAlgorithm === 'sutherland-hodgman') {
+                drawClipArea();
+            }
+            
+            // Dibujar puntos seleccionados
+            selectedPoints.forEach((point, index) => {
+                ctx.fillStyle = '#e74c3c';
+                ctx.fillRect(point.x - 2, point.y - 2, 5, 5);
+                
+                if (showCoords) {
+                    ctx.fillStyle = '#2c3e50';
+                    ctx.font = '12px Arial';
+                    ctx.fillText(`(${point.x},${point.y})`, point.x + 5, point.y - 5);
+                }
+            });
+            
+            // Dibujar línea entre puntos para algoritmos de línea
+            if ((currentAlgorithm === 'dda' || currentAlgorithm === 'bresenham-line' || 
+                 currentAlgorithm === 'cohen-sutherland') && selectedPoints.length === 2) {
+                drawPreviewLine();
+            }
+            
+            // Dibujar círculo preview para algoritmos de círculo
+            if (currentAlgorithm === 'bresenham-circle' && selectedPoints.length === 1) {
+                drawPreviewCircle();
+            }
+        }
+        
+        function drawClipArea() {
+            const clipX = parseInt(document.getElementById('clip-x')?.value || 100);
+            const clipY = parseInt(document.getElementById('clip-y')?.value || 80);
+            const clipWidth = parseInt(document.getElementById('clip-width')?.value || 200);
+            const clipHeight = parseInt(document.getElementById('clip-height')?.value || 150);
+            
+            // Dibujar área de recorte con borde azul y relleno semi-transparente
+            ctx.strokeStyle = '#3498db';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]); // Línea punteada
+            ctx.strokeRect(clipX, clipY, clipWidth, clipHeight);
+            
+            // Relleno semi-transparente
+            ctx.fillStyle = 'rgba(52, 152, 219, 0.1)';
+            ctx.fillRect(clipX, clipY, clipWidth, clipHeight);
+            
+            // Etiqueta del área de recorte
+            ctx.fillStyle = '#3498db';
+            ctx.font = 'bold 12px Arial';
+            ctx.fillText('Área de Recorte', clipX + 5, clipY - 5);
+            
+            // Mostrar coordenadas de las esquinas
+            if (showCoords) {
+                ctx.fillStyle = '#2980b9';
+                ctx.font = '10px Arial';
+                ctx.fillText(`(${clipX},${clipY})`, clipX - 30, clipY - 2);
+                ctx.fillText(`(${clipX + clipWidth},${clipY + clipHeight})`, clipX + clipWidth + 5, clipY + clipHeight + 12);
+            }
+            
+            // Restablecer el estilo de línea
+            ctx.setLineDash([]);
+            ctx.lineWidth = 1;
+        }
+        
+        function drawPreviewLine() {
+            const point1 = selectedPoints[0];
+            const point2 = selectedPoints[1];
+            
+            ctx.strokeStyle = '#95a5a6';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([3, 3]);
+            ctx.beginPath();
+            ctx.moveTo(point1.x, point1.y);
+            ctx.lineTo(point2.x, point2.y);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // Si es algoritmo de recorte, mostrar qué parte está dentro/fuera
+            if (currentAlgorithm === 'cohen-sutherland') {
+                const clipX = parseInt(document.getElementById('clip-x')?.value || 100);
+                const clipY = parseInt(document.getElementById('clip-y')?.value || 80);
+                const clipWidth = parseInt(document.getElementById('clip-width')?.value || 200);
+                const clipHeight = parseInt(document.getElementById('clip-height')?.value || 150);
+                
+                // Determinar qué partes están dentro del área de recorte
+                const inside1 = isPointInside(point1, clipX, clipY, clipWidth, clipHeight);
+                const inside2 = isPointInside(point2, clipX, clipY, clipWidth, clipHeight);
+                
+                // Dibujar línea con diferentes colores según la posición
+                if (inside1 && inside2) {
+                    // Toda la línea está dentro
+                    ctx.strokeStyle = '#27ae60';
+                    ctx.lineWidth = 2;
+                } else if (!inside1 && !inside2) {
+                    // Toda la línea está fuera
+                    ctx.strokeStyle = '#e74c3c';
+                    ctx.lineWidth = 2;
+                } else {
+                    // Línea parcialmente dentro
+                    ctx.strokeStyle = '#f39c12';
+                    ctx.lineWidth = 2;
+                }
+                
+                ctx.setLineDash([]);
+                ctx.beginPath();
+                ctx.moveTo(point1.x, point1.y);
+                ctx.lineTo(point2.x, point2.y);
+                ctx.stroke();
+            }
+        }
+        
+        function drawPreviewCircle() {
+            const center = selectedPoints[0];
+            const radius = parseInt(document.getElementById('radius')?.value || 50);
+            
+            ctx.strokeStyle = '#95a5a6';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([3, 3]);
+            ctx.beginPath();
+            ctx.arc(center.x, center.y, radius, 0, 2 * Math.PI);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+        
+        function isPointInside(point, clipX, clipY, clipWidth, clipHeight) {
+            return point.x >= clipX && point.x <= clipX + clipWidth &&
+                   point.y >= clipY && point.y <= clipY + clipHeight;
+        }
+
+        function drawGrid() {
+            ctx.strokeStyle = '#ecf0f1';
+            ctx.lineWidth = 0.5;
+            
+            for (let x = 0; x < canvas.width; x += 20) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            
+            for (let y = 0; y < canvas.height; y += 20) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+        }
+
+        function updateAlgorithmInfo() {
+            const selectedAlgorithm = document.querySelector('input[name="algorithm"]:checked');
+            if (selectedAlgorithm) {
+                currentAlgorithm = selectedAlgorithm.value;
+                updateParametersSection();
+                updateStepInfo();
+            }
+        }
+
+        function updateParametersSection() {
+            const container = document.getElementById('parameters-container');
+            
+            // Limpiar parámetros actuales
+            container.innerHTML = '';
+            
+            if (currentAlgorithm === 'dda' || currentAlgorithm === 'bresenham-line') {
+                container.innerHTML = `
+                    <div class="input-group">
+                        <label>Punto Inicial:</label>
+                        <div class="input-row">
+                            <input type="number" id="x1" placeholder="X1" value="50">
+                            <input type="number" id="y1" placeholder="Y1" value="50">
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>Punto Final:</label>
+                        <div class="input-row">
+                            <input type="number" id="x2" placeholder="X2" value="200">
+                            <input type="number" id="y2" placeholder="Y2" value="150">
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>Color:</label>
+                        <input type="color" id="color-picker" class="color-picker" value="#3498db">
+                    </div>
+                `;
+            } else if (currentAlgorithm === 'bresenham-circle') {
+                container.innerHTML = `
+                    <div class="input-group">
+                        <label>Centro:</label>
+                        <div class="input-row">
+                            <input type="number" id="cx" placeholder="X" value="150">
+                            <input type="number" id="cy" placeholder="Y" value="150">
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>Radio:</label>
+                        <div class="input-row">
+                            <input type="number" id="radius" placeholder="Radio" value="50" min="1">
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>Color:</label>
+                        <input type="color" id="color-picker" class="color-picker" value="#3498db">
+                    </div>
+                `;
+            } else if (currentAlgorithm === 'cohen-sutherland' || currentAlgorithm === 'sutherland-hodgman') {
+                container.innerHTML = `
+                    <div class="input-group">
+                        <label>Área de Recorte:</label>
+                        <div class="input-row">
+                            <input type="number" id="clip-x" placeholder="X" value="100">
+                            <input type="number" id="clip-y" placeholder="Y" value="80">
+                        </div>
+                        <div class="input-row">
+                            <input type="number" id="clip-width" placeholder="Ancho" value="200">
+                            <input type="number" id="clip-height" placeholder="Alto" value="150">
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>Línea/Polígono:</label>
+                        <div class="input-row">
+                            <input type="number" id="x1" placeholder="X1" value="50">
+                            <input type="number" id="y1" placeholder="Y1" value="50">
+                        </div>
+                        <div class="input-row">
+                            <input type="number" id="x2" placeholder="X2" value="350">
+                            <input type="number" id="y2" placeholder="Y2" value="280">
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>Color:</label>
+                        <input type="color" id="color-picker" class="color-picker" value="#3498db">
+                    </div>
+                `;
+            }
+        }
+
+        function updateStepInfo() {
+            const algorithmNames = {
+                'dda': 'DDA',
+                'bresenham-line': 'Bresenham (Línea)',
+                'bresenham-circle': 'Bresenham (Círculo)',
+                'bresenham-ellipse': 'Bresenham (Elipse)',
+                'flood-fill': 'Flood Fill',
+                'scanline-fill': 'Scanline Fill',
+                'cohen-sutherland': 'Cohen-Sutherland',
+                'sutherland-hodgman': 'Sutherland-Hodgman',
+                'bezier': 'Curvas de Bézier',
+                'bspline': 'B-Splines'
+            };
+            
+            document.getElementById('step-info').innerHTML = `
+                <strong>Algoritmo:</strong> ${algorithmNames[currentAlgorithm] || 'Desconocido'}<br>
+                <strong>Estado:</strong> Listo para ejecutar<br>
+                <strong>Paso:</strong> ${currentStep}/${totalSteps}<br>
+                <strong>Píxel actual:</strong> ${currentStep > 0 ? `(${Math.floor(Math.random()*300)}, ${Math.floor(Math.random()*200)})` : '-'}
+            `;
+        }
+
+        function executeStep() {
+            if (!isExecuting) {
+                // Simular ejecución paso a paso
+                if (currentStep === 0) {
+                    calculateSteps();
+                }
+                
+                if (currentStep < totalSteps) {
+                    currentStep++;
+                    updateProgress();
+                    updateStepInfo();
+                    drawSimulatedStep();
+                    
+                    document.getElementById('step-info').innerHTML = `
+                        <strong>Algoritmo:</strong> ${currentAlgorithm.toUpperCase()}<br>
+                        <strong>Estado:</strong> Ejecutando paso ${currentStep}<br>
+                        <strong>Paso:</strong> ${currentStep}/${totalSteps}<br>
+                        <strong>Píxel actual:</strong> (${Math.floor(Math.random()*300)}, ${Math.floor(Math.random()*200)})<br>
+                        <strong>Decisión:</strong> ${getRandomDecision()}
+                    `;
+                }
+                
+                if (currentStep >= totalSteps) {
+                    document.getElementById('execution-status').textContent = 'Completado';
+                }
+            }
+        }
+
+        function executeComplete() {
+            if (isExecuting) return;
+            
+            isExecuting = true;
+            document.getElementById('complete-btn').disabled = true;
+            document.getElementById('pause-btn').disabled = false;
+            document.getElementById('execution-status').textContent = 'Ejecutando';
+            
+            if (currentStep === 0) {
+                calculateSteps();
+            }
+            
+            const speed = parseInt(document.getElementById('speed-slider').value);
+            const delay = 1100 - (speed * 100); // Velocidad inversa
+            
+            executionInterval = setInterval(() => {
+                if (currentStep < totalSteps) {
+                    executeStep();
+                } else {
+                    pauseExecution();
+                }
+            }, delay);
+        }
+
+        function pauseExecution() {
+            isExecuting = false;
+            clearInterval(executionInterval);
+            document.getElementById('complete-btn').disabled = false;
+            document.getElementById('pause-btn').disabled = true;
+            document.getElementById('execution-status').textContent = currentStep >= totalSteps ? 'Completado' : 'Pausado';
+        }
+
+        function resetExecution() {
+            pauseExecution();
+            currentStep = 0;
+            totalSteps = 0;
+            selectedPoints = [];
+            document.getElementById('points-count').textContent = '0';
+            updateProgress();
+            updateStepInfo();
+            drawCanvas();
+            document.getElementById('execution-status').textContent = 'Listo';
+        }
+
+        function calculateSteps() {
+            // Simular cálculo de pasos basado en el algoritmo
+            if (currentAlgorithm === 'dda' || currentAlgorithm === 'bresenham-line') {
+                const x1 = parseInt(document.getElementById('x1')?.value || 50);
+                const y1 = parseInt(document.getElementById('y1')?.value || 50);
+                const x2 = parseInt(document.getElementById('x2')?.value || 200);
+                const y2 = parseInt(document.getElementById('y2')?.value || 150);
+                totalSteps = Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1));
+            } else if (currentAlgorithm === 'bresenham-circle') {
+                const radius = parseInt(document.getElementById('radius')?.value || 50);
+                totalSteps = Math.ceil(2 * Math.PI * radius / 8); // Aproximación
+            } else {
+                totalSteps = Math.floor(Math.random() * 50) + 10; // Simulación
+            }
+        }
+
+        function updateProgress() {
+            const progress = totalSteps > 0 ? (currentStep / totalSteps) * 100 : 0;
+            document.getElementById('progress-fill').style.width = progress + '%';
+        }
+
+        function drawSimulatedStep() {
+            if (!showSteps) return;
+            
+            // Simular dibujo de píxel
+            const color = document.getElementById('color-picker')?.value || '#3498db';
+            ctx.fillStyle = color;
+            
+            // Posición simulada basada en el algoritmo
+            let x, y;
+            if (currentAlgorithm === 'dda' || currentAlgorithm === 'bresenham-line') {
+                const x1 = parseInt(document.getElementById('x1')?.value || 50);
+                const y1 = parseInt(document.getElementById('y1')?.value || 50);
+                const x2 = parseInt(document.getElementById('x2')?.value || 200);
+                const y2 = parseInt(document.getElementById('y2')?.value || 150);
+                
+                const t = currentStep / totalSteps;
+                x = Math.floor(x1 + (x2 - x1) * t);
+                y = Math.floor(y1 + (y2 - y1) * t);
+            } else if (currentAlgorithm === 'cohen-sutherland') {
+                // Simular el recorte de línea
+                const x1 = parseInt(document.getElementById('x1')?.value || 50);
+                const y1 = parseInt(document.getElementById('y1')?.value || 50);
+                const x2 = parseInt(document.getElementById('x2')?.value || 350);
+                const y2 = parseInt(document.getElementById('y2')?.value || 280);
+                const clipX = parseInt(document.getElementById('clip-x')?.value || 100);
+                const clipY = parseInt(document.getElementById('clip-y')?.value || 80);
+                const clipWidth = parseInt(document.getElementById('clip-width')?.value || 200);
+                const clipHeight = parseInt(document.getElementById('clip-height')?.value || 150);
+                
+                const t = currentStep / totalSteps;
+                x = Math.floor(x1 + (x2 - x1) * t);
+                y = Math.floor(y1 + (y2 - y1) * t);
+                
+                // Solo dibujar si está dentro del área de recorte
+                if (isPointInside({x, y}, clipX, clipY, clipWidth, clipHeight)) {
+                    ctx.fillStyle = '#27ae60'; // Verde para píxeles dentro
+                } else {
+                    ctx.fillStyle = '#e74c3c'; // Rojo para píxeles fuera (que serán recortados)
+                }
+            } else {
+                x = Math.floor(Math.random() * canvas.width);
+                y = Math.floor(Math.random() * canvas.height);
+            }
+            
+            ctx.fillRect(x, y, 2, 2);
+            
+            // Dibujar indicador del píxel actual
+            ctx.strokeStyle = '#2c3e50';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x - 3, y - 3, 8, 8);
+        }
+
+        function getRandomDecision() {
+            const decisions = [
+                'Incrementar X',
+                'Incrementar Y',
+                'Error < 0.5',
+                'Siguiente octante',
+                'Aplicar simetría',
+                'Calcular punto medio'
+            ];
+            return decisions[Math.floor(Math.random() * decisions.length)];
+        }
+
+        function updateSpeed() {
+            const speed = document.getElementById('speed-slider').value;
+            document.getElementById('speed-value').textContent = speed;
+        }
+
+        function toggleGrid() {
+            showGrid = document.getElementById('show-grid').checked;
+            drawCanvas();
+        }
+
+        function toggleCoords() {
+            showCoords = document.getElementById('show-coords').checked;
+            drawCanvas();
+        }
+
+        function toggleSteps() {
+            showSteps = document.getElementById('show-steps').checked;
+        }
+
+        function clearCanvas() {
+            resetExecution();
+        }
+
+        // Event listeners para radio buttons
+        document.addEventListener('change', function(event) {
+            if (event.target.name === 'algorithm') {
+                updateAlgorithmInfo();
+            }
+        });
+
+        // Inicializar la aplicación
+        init();
+    </script>
+</body>
+</html>
