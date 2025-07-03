@@ -49,6 +49,7 @@
     <Compile Include="AnimationManager.cs" />
     <Compile Include="Circle.cs" />
     <Compile Include="Clipper.cs" />
+    <Compile Include="Curve.cs" />
     <Compile Include="Ellipse.cs" />
     <Compile Include="Filler.cs" />
     <Compile Include="FrmGraphicAlgorithms.cs">

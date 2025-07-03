@@ -18,6 +18,7 @@ namespace GraphicAlgorithms2
         private ToolStripStatusLabel statusModo;
         private ToolStripStatusLabel statusEstado;
         private ToolStripStatusLabel statusPuntos;
+        private int previousTabIndex = 0;
 
         // Botones y controles de ejecución
         private Button btnCompleto;
@@ -32,10 +33,13 @@ namespace GraphicAlgorithms2
         private bool isExecuting = false;
         private string selectedAlgorithm = "";
         private List<Point> clipLinePoints = new List<Point>();
-        private List<Point> clipPolygonPoints = new List<Point>();
+        private Polygon clipPolygon = new Polygon();
         private Clipper clipper;
         private bool showingClippingArea = false;
         private bool isCreatingPolygon = false;
+
+        private Curve curve = new Curve();
+        private bool isCreatingCurve = false;
 
         public FrmGraphicAlgorithms()
         {
@@ -287,10 +291,11 @@ namespace GraphicAlgorithms2
         {
             var controls = new Control[]
             {
-                    CreateLabel("Puntos de Control:", 20, 10),
-                    new TextBox { Left = 10, Top = 45, Width = 280, Height = 60, Multiline = true, ScrollBars = ScrollBars.Vertical },
-                    CreateLabel("Formato: x1,y1;x2,y2;x3,y3;...", 115, 10, 250, Color.Gray),
-                    CreateLabel("O usar Click en canvas para definir", 140, 10, 250, Color.Gray)
+                CreateLabel("Puntos de Control:", 20, 10),
+                CreateLabel("Click en canvas para agregar puntos", 45, 10, 280, Color.Gray),
+                CreateLabel("Mínimo 2 puntos para Bézier", 70, 10, 280, Color.Gray),
+                CreateLabel("Mínimo 4 puntos para B-Spline", 95, 10, 280, Color.Gray),
+                CreateColorButton("Color de Curva", Color.Purple, 125, 10, 250)
             };
 
             grbParams.Controls.AddRange(controls);
@@ -507,6 +512,11 @@ namespace GraphicAlgorithms2
                 statusPuntos.Text = "Puntos: 0";
             }
 
+            if (tabIndex != 4)
+            {
+                ClearCurvePoints();
+            }
+
             switch (tabIndex)
             {
                 case 0: BuildLineParameterPanel(); break;
@@ -653,9 +663,20 @@ namespace GraphicAlgorithms2
 
             tabAlgorithms.SelectedIndexChanged += (s, e) =>
             {
+                if (previousTabIndex == 3 && tabAlgorithms.SelectedIndex != 3)
+                {
+                    using (var g = Graphics.FromImage(canvasBitmap))
+                    {
+                        g.Clear(Color.White);
+                    }
+                    picCanvas.Invalidate();
+                }
+
                 SetParamsForTab(tabAlgorithms.SelectedIndex);
                 UpdateSelectedAlgorithmForCurrentTab();
                 UpdateInfoForCurrentTab();
+
+                previousTabIndex = tabAlgorithms.SelectedIndex;
             };
 
             controlPanel.Controls.Add(tabAlgorithms);
@@ -800,8 +821,8 @@ namespace GraphicAlgorithms2
                         isCreatingPolygon = true;
                     }
 
-                    clipPolygonPoints.Add(new Point(e.X, e.Y));
-                    statusPuntos.Text = $"Puntos: {clipPolygonPoints.Count}";
+                    clipPolygon.AddVertice(new Point(e.X, e.Y));
+                    statusPuntos.Text = $"Puntos: {clipPolygon.Points.Count}";
 
                     using (var g = Graphics.FromImage(canvasBitmap))
                     {
@@ -809,17 +830,68 @@ namespace GraphicAlgorithms2
                     }
                     await clipper.DrawClippingArea(picCanvas, canvasBitmap, areaColor, CancellationToken.None);
 
-                    DrawPolygonPoints();
+                    clipPolygon.DrawPoints(picCanvas, canvasBitmap);
 
-                    if (clipPolygonPoints.Count < 3)
+                    if (clipPolygon.Points.Count < 3)
                     {
                         UpdateExecutionInfo(selectedAlgorithm, "Creando",
-                            $"Polígono: {clipPolygonPoints.Count} vértices\nNecesita al menos 3 puntos");
+                            $"Polígono: {clipPolygon.Points.Count} vértices\nNecesita al menos 3 puntos");
                     }
                     else
                     {
                         UpdateExecutionInfo(selectedAlgorithm, "Listo",
-                            $"Polígono: {clipPolygonPoints.Count} vértices\nPresione Ejecutar para recortar");
+                            $"Polígono: {clipPolygon.Points.Count} vértices\nPresione Ejecutar para recortar");
+                    }
+                }
+            }
+            else if (tabAlgorithms.SelectedIndex == 4) // AGREGAR ESTA SECCIÓN - Curvas
+            {
+                if (!isCreatingCurve)
+                {
+                    isCreatingCurve = true;
+                }
+
+                curve.AddControlPoint(new Point(e.X, e.Y));
+                statusPuntos.Text = $"Puntos: {curve.ControlPoints.Count}";
+
+                // Dibujar punto de control
+                using (var g = Graphics.FromImage(canvasBitmap))
+                {
+                    g.FillEllipse(Brushes.Purple, e.X - 3, e.Y - 3, 6, 6);
+
+                    // Dibujar número del punto
+                    using (var font = new Font("Arial", 8))
+                    {
+                        g.DrawString(curve.ControlPoints.Count.ToString(), font, Brushes.Black, e.X + 5, e.Y - 5);
+                    }
+                }
+                picCanvas.Invalidate();
+
+                // Actualizar información según el algoritmo y cantidad de puntos
+                if (selectedAlgorithm.Contains("Bézier"))
+                {
+                    if (curve.ControlPoints.Count < 2)
+                    {
+                        UpdateExecutionInfo(selectedAlgorithm, "Creando",
+                            $"Puntos de control: {curve.ControlPoints.Count}\nNecesita al menos 2 puntos");
+                    }
+                    else
+                    {
+                        UpdateExecutionInfo(selectedAlgorithm, "Listo",
+                            $"Puntos de control: {curve.ControlPoints.Count}\nPresione Ejecutar para dibujar");
+                    }
+                }
+                else if (selectedAlgorithm.Contains("B-Splines"))
+                {
+                    if (curve.ControlPoints.Count < 4)
+                    {
+                        UpdateExecutionInfo(selectedAlgorithm, "Creando",
+                            $"Puntos de control: {curve.ControlPoints.Count}\nNecesita al menos 4 puntos");
+                    }
+                    else
+                    {
+                        UpdateExecutionInfo(selectedAlgorithm, "Listo",
+                            $"Puntos de control: {curve.ControlPoints.Count}\nPresione Ejecutar para dibujar");
                     }
                 }
             }
@@ -880,6 +952,7 @@ namespace GraphicAlgorithms2
             showingClippingArea = false;
 
             ClearPolygonPoints();
+            ClearCurvePoints();
             showingClippingArea = false;
 
             if (tabAlgorithms.SelectedIndex == 3)
@@ -960,12 +1033,31 @@ namespace GraphicAlgorithms2
                     ClearPolygonPoints();
                     break;
                 case 4:
-                    info = $"Algoritmo: {selectedAlgorithm}\nEstado: Listo\nEntradas: Puntos de control";
+                    if (selectedAlgorithm.Contains("Bézier"))
+                    {
+                        info = $"Algoritmo: {selectedAlgorithm}\nEstado: Listo\nEntradas: Puntos de control (mín. 2)";
+                    }
+                    else if (selectedAlgorithm.Contains("B-Splines"))
+                    {
+                        info = $"Algoritmo: {selectedAlgorithm}\nEstado: Listo\nEntradas: Puntos de control (mín. 4)";
+                    }
+                    else
+                    {
+                        info = $"Algoritmo: {selectedAlgorithm}\nEstado: Listo\nEntradas: Puntos de control";
+                    }
                     statusModo.Text = "Modo: Activado";
+                    ClearCurvePoints(); // AGREGAR ESTA LÍNEA
                     break;
             }
 
             lblInfo.Text = info;
+        }
+
+        private void ClearCurvePoints()
+        {
+            curve.ControlPoints.Clear();
+            isCreatingCurve = false;
+            statusPuntos.Text = "Puntos: 0";
         }
 
         private async Task ExecuteClipAlgorithmComplete()
@@ -994,7 +1086,7 @@ namespace GraphicAlgorithms2
                         $"Recortando línea: ({clipLinePoints[0].X},{clipLinePoints[0].Y}) -> ({clipLinePoints[1].X},{clipLinePoints[1].Y})");
 
                     // Dibujar línea original en gris claro
-                    await originalLine.DrawDDA(picCanvas, canvasBitmap, Color.LightGray, true, cancellationTokenSource.Token);
+                    await originalLine.DrawDDA(picCanvas, canvasBitmap, Color.LightGray, false, cancellationTokenSource.Token);
 
                     // Aplicar Cohen-Sutherland
                     var clippedLine = clipper.CohenSutherlandClip(originalLine);
@@ -1013,19 +1105,19 @@ namespace GraphicAlgorithms2
                 else if (selectedAlgorithm.Contains("Sutherland-Hodgman"))
                 {
                     // Algoritmo Sutherland-Hodgman para polígonos
-                    if (clipPolygonPoints.Count < 3)
+                    if (clipPolygon.Points.Count < 3)
                     {
                         ShowError("Sutherland-Hodgman: Se necesitan al menos 3 puntos para formar un polígono.");
                         return;
                     }
 
-                    var originalPolygon = new Polygon(clipPolygonPoints);
+                    var originalPolygon = new Polygon(clipPolygon.Points);
 
                     UpdateExecutionInfo(selectedAlgorithm, "Ejecutando",
-                        $"Recortando polígono con {clipPolygonPoints.Count} vértices");
+                        $"Recortando polígono con {clipPolygon.Points.Count} vértices");
 
                     // Dibujar polígono original en gris claro
-                    await DrawPolygonAsync(originalPolygon, Color.LightGray);
+                    originalPolygon.Draw(picCanvas, canvasBitmap, Color.LightGray);
 
                     // Aplicar Sutherland-Hodgman
                     var clippedPolygon = clipper.SutherlandHodgmanClip(originalPolygon);
@@ -1033,7 +1125,7 @@ namespace GraphicAlgorithms2
                     if (clippedPolygon.Points.Count >= 3)
                     {
                         // Dibujar polígono recortado
-                        await DrawPolygonAsync(clippedPolygon, lineColor);
+                        clippedPolygon.Draw(picCanvas, canvasBitmap, lineColor);
 
                         // Rellenar el polígono recortado con patrón
                         await FillClippedPolygon(clippedPolygon, lineColor);
@@ -1105,8 +1197,52 @@ namespace GraphicAlgorithms2
 
         private async Task ExecuteCurveAlgorithmComplete()
         {
-            MessageBox.Show("Ejecutar completo - Algoritmo de curvas");
+            try
+            {
+                var colorButton = FindControlByText<Button>("Color de Curva");
+                var selectedColor = GetButtonColor(colorButton, Color.Purple);
+
+                if (selectedAlgorithm.Contains("Bézier"))
+                {
+                    if (curve.ControlPoints.Count < 2)
+                    {
+                        ShowError("Curvas de Bézier: Se necesitan al menos 2 puntos de control.");
+                        return;
+                    }
+
+                    UpdateExecutionInfo(selectedAlgorithm, "Ejecutando",
+                        $"Dibujando curva de Bézier con {curve.ControlPoints.Count} puntos de control");
+
+                    await curve.DrawBezier(picCanvas, canvasBitmap, selectedColor, 100);
+
+                    UpdateExecutionInfo(selectedAlgorithm, "Completado",
+                        $"Curva de Bézier dibujada con {curve.ControlPoints.Count} puntos de control");
+                }
+                else if (selectedAlgorithm.Contains("B-Splines"))
+                {
+                    if (curve.ControlPoints.Count < 4)
+                    {
+                        ShowError("B-Splines: Se necesitan al menos 4 puntos de control.");
+                        return;
+                    }
+
+                    UpdateExecutionInfo(selectedAlgorithm, "Ejecutando",
+                        $"Dibujando B-Spline con {curve.ControlPoints.Count} puntos de control");
+
+                    await curve.DrawBSpline(picCanvas, canvasBitmap, selectedColor, 100);
+
+                    UpdateExecutionInfo(selectedAlgorithm, "Completado",
+                        $"B-Spline dibujada con {curve.ControlPoints.Count} puntos de control");
+                }
+            }
+            catch (Exception ex)
+            {
+                ShowError($"Error al ejecutar el algoritmo: {ex.Message}");
+                UpdateExecutionInfo(selectedAlgorithm, "Error", ex.Message);
+            }
         }
+
+
 
         #endregion
 
@@ -1166,60 +1302,17 @@ namespace GraphicAlgorithms2
                         var tempLine = new Line(clipLinePoints[0], clipLinePoints[1]);
                         await tempLine.DrawDDA(picCanvas, canvasBitmap, Color.DarkGreen, false, CancellationToken.None);
                     }
-                    if (clipPolygonPoints.Count > 0)
+                    if (clipPolygon.Points.Count > 0)
                     {
-                        DrawPolygonPoints();
+                        clipPolygon.DrawPoints(picCanvas, canvasBitmap);
                     }
                 }
             }
         }
-
-
-        private async Task DrawPolygonAsync(Polygon polygon, Color color)
-        {
-            for (int i = 0; i < polygon.Points.Count; i++)
-            {
-                Point start = polygon.Points[i];
-                Point end = polygon.Points[(i + 1) % polygon.Points.Count];
-                var edge = new Line(start, end);
-                await edge.DrawDDA(picCanvas, canvasBitmap, color, false, CancellationToken.None);
-            }
-            picCanvas.Invalidate();
-        }
-
-        private void DrawPolygonPoints()
-        {
-            using (var g = Graphics.FromImage(canvasBitmap))
-            {
-                for (int i = 0; i < clipPolygonPoints.Count; i++)
-                {
-                    var point = clipPolygonPoints[i];
-
-                    g.FillEllipse(Brushes.Blue, point.X - 3, point.Y - 3, 6, 6);
-
-                    using (var font = new Font("Arial", 8))
-                    {
-                        g.DrawString((i + 1).ToString(), font, Brushes.Black, point.X + 5, point.Y - 5);
-                    }
-
-                    if (i > 0)
-                    {
-                        g.DrawLine(Pens.Blue, clipPolygonPoints[i - 1], point);
-                    }
-                }
-
-                if (clipPolygonPoints.Count >= 3)
-                {
-                    g.DrawLine(Pens.Blue, clipPolygonPoints[clipPolygonPoints.Count - 1], clipPolygonPoints[0]);
-                }
-            }
-            picCanvas.Invalidate();
-        }
-
 
         private void ClearPolygonPoints()
         {
-            clipPolygonPoints.Clear();
+            clipPolygon.Points.Clear();
             clipLinePoints.Clear();
             isCreatingPolygon = false;
             statusPuntos.Text = "Puntos: 0";
